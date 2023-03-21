@@ -12,6 +12,9 @@ exclude_lines =
         @abc.abstractmethod
 
 omit =
-        fast1dkmeans/tests/*
+        microagg1d/tests/*
 
-# pytest --cov fast1dkmeans --cov-report html .
+# pytest --cov microagg1d --cov-report html .
+
+# git tag -a v0.1.0 -m "Publish version 0.1.0"
+# git push origin --tags

@@ -1,0 +1,1 @@
+from microagg1d.main import optimal_univariate_microaggregation_1d

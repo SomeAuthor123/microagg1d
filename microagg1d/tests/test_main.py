@@ -43,10 +43,11 @@ class RegularizedKmeans(unittest.TestCase):
                 np.testing.assert_array_equal(solution, result, f"k={k}")
 
     def test_example_usage(self):
+        import microagg1d
         x = [5, 1, 1, 1.1, 5, 1, 5]
         k = 3
 
-        clusters = optimal_univariate_microaggregation_1d(x, k)
+        clusters = microagg1d.optimal_univariate_microaggregation_1d(x, k)
 
         print(clusters)   # [1 0 0 0 1 0 1]
         np.testing.assert_array_equal(clusters, [1, 0, 0, 0, 1, 0, 1], f"k={k}")
