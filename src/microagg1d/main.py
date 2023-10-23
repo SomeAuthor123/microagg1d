@@ -22,7 +22,7 @@ def undo_argsort(sorted_arr, sort_order):
     return sorted_arr[revert]
 
 
-def optimal_univariate_microaggregation_1d(x, k, method="auto", stable=1, cost="sse"):
+def univariate_microaggregation(x, k, method="auto", stable=1, cost="sse"):
     """Performs optimal 1d univariate microaggregation"""
     x = np.squeeze(np.asarray(x))
     assert len(x.shape) == 1, "provided array is not 1d"

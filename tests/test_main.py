@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from microagg1d.main import optimal_univariate_microaggregation_1d, undo_argsort
+from microagg1d.main import undo_argsort, univariate_microaggregation
 
 # use with k=5
 interesting_arr = np.array(
@@ -56,39 +56,38 @@ class RegularizedKmeans(unittest.TestCase):
 
     def test_microagg_raises(self):
         with self.assertRaises(AssertionError):
-            optimal_univariate_microaggregation_1d(np.random.rand(4, 4), 1)
+            univariate_microaggregation(np.random.rand(4, 4), 1)
 
         with self.assertRaises(AssertionError):
-            optimal_univariate_microaggregation_1d(self.arr, 0)
+            univariate_microaggregation(self.arr, 0)
 
     def test_microagg(self):
         for k, solution in zip(range(1, len(self.arr) + 1), self.solutions):
-            result = optimal_univariate_microaggregation_1d(self.arr.copy(), k)
+            result = univariate_microaggregation(self.arr.copy(), k)
             np.testing.assert_array_equal(solution, result, f"k={k}")
 
     def test_example_usage(self):
-        import microagg1d  # pylint: disable=import-outside-toplevel
+        from microagg1d import (
+            univariate_microaggregation,  # pylint: disable=redefined-outer-name,reimported,import-outside-toplevel
+        )
 
-        x = [5, 1, 1, 1.1, 5, 1, 5]
+        x = [5, 1, 1, 1.1, 5, 1, 5.1]
 
-        clusters = microagg1d.optimal_univariate_microaggregation_1d(x, k=3)
+        clusters = univariate_microaggregation(x, k=3)
 
         print(clusters)  # [1 0 0 0 1 0 1]
-        np.testing.assert_array_equal(clusters, [1, 0, 0, 0, 1, 0, 1], f"k={3}")
 
-        clusters2 = microagg1d.optimal_univariate_microaggregation_1d(
-            x, k=3, method="wilber"
-        )  # explicitly choose method
+        # explicitly choose method / algorithm
+        clusters2 = univariate_microaggregation(x, k=3, method="wilber")
 
         print(clusters2)  # [1 0 0 0 1 0 1]
 
-        # may opt to get increased speed at cost of stability
-        # this is usually not a problem on small datasets such as here
-        clusters3 = microagg1d.optimal_univariate_microaggregation_1d(
-            x, k=3, stable=False
-        )
+        # choose a different cost (sae / sse / roundup / rounddown / maxdist)
+        clusters3 = univariate_microaggregation(x, k=3, cost="sae")
 
         print(clusters3)  # [1 0 0 0 1 0 1]
+
+        np.testing.assert_array_equal(clusters, [1, 0, 0, 0, 1, 0, 1], f"k={3}")
 
         np.testing.assert_array_equal(clusters2, [1, 0, 0, 0, 1, 0, 1], f"k={3}")
 
