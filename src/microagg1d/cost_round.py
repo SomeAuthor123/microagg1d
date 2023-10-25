@@ -33,7 +33,7 @@ class AdaptedRoundUpCostCalculator:
         self.SMALL_VAL = (arr[-1] - arr[0]) * n
         self.LARGE_VAL = self.SMALL_VAL * (1 + n)
 
-    def calc(self, i, j):  # i <-> j interchanged is not a bug!
+    def calc(self, i, j):
         """This function computes the w_{ij} values introduced"""
         if j <= i:
             return np.inf
@@ -88,7 +88,7 @@ class AdaptedRoundDownCostCalculator:
         self.SMALL_VAL = (arr[-1] - arr[0]) * n
         self.LARGE_VAL = self.SMALL_VAL * (1 + n)
 
-    def calc(self, i, j):  # i <-> j interchanged is not a bug!
+    def calc(self, i, j):
         """This function computes the w_{ij} values introduced"""
         if j <= i:
             return np.inf
