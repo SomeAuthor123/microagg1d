@@ -70,4 +70,6 @@ def univariate_microaggregation(x, k, method="auto", stable=1, cost="sse"):
         clusters = _rounddown_user(x, k, method)
     elif cost == "maxdist":
         clusters = _maxdist_user(x, k, method)
+    else:
+        raise NotImplementedError("Should not be reachable")
     return undo_argsort(clusters, order)

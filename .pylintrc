@@ -1,5 +1,7 @@
 [MASTER]
 disable= missing-module-docstring, missing-class-docstring, missing-function-docstring, missing-final-newline, C0325
+ignore-paths=.coveragerc
+ignore=.coveragerc
 [FORMAT]
 max-line-length=200
 

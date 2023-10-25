@@ -49,6 +49,10 @@ class TestSMAWKIter(unittest.TestCase):
         solution = np.argmin(test_arr, axis=1)
         assert_array_equal(solution, smawk_iter_array(test_arr))
 
+    def test_smawk_no_input(self):
+        smawk_iter_array(np.empty((0, 10)))
+        smawk_iter_array(np.empty((10, 0)))
+
 
 class TestSMAWKIterNonCompiled(TestSMAWKIter):
     def setUp(self):
