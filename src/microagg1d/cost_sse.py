@@ -279,7 +279,7 @@ def compute_sse_sorted_stable(v, clusters_sorted):
     r = 0
     while r < len(v):
         r = left
-        while clusters_sorted[left] == clusters_sorted[r] and r < len(v):
+        while r < len(v) and clusters_sorted[left] == clusters_sorted[r]:
             r += 1
         # r-=1
         mean = np.mean(v[left:r])

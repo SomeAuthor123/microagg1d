@@ -1,172 +1,420 @@
-import numba
 import numpy as np
+
+DEBUG = False
 
 
 def is_jitlass(func):
     return str(type(func)) == "<class 'numba.experimental.jitclass.base.JitClassType'>"
 
 
-def remove_numba(func, seen=None, allowed_packages=tuple()):
-    # print(func, type(func))
+class RemoveNumbaSettings:
+    def __init__(self, allowed_packes=tuple()):
+        self.allowed_packages = tuple(allowed_packes) + ("__main__",)
+        self.search_deep = True
+        self.depth = 0
+        self.max_depth = 1000
 
-    if seen is None:
-        seen = {}
-    if hasattr(func, "py_func"):
-        # clean_up["self"] = func
-        seen[func] = func.py_func
-        func = func.py_func
+    def is_allowed_module_string(self, module_string):
+        if module_string.startswith("numba.experimental.jitclass.base"):
+            return True
+        if module_string == "":
+            return True
+        return any(
+            package_str in module_string for package_str in self.allowed_packages
+        )
 
-    if isinstance(func, type(remove_numba)):
-        to_iter = func.__globals__
 
-        def set_func(key, value):
-            to_iter[key] = value
+DefaultSettings = RemoveNumbaSettings()
 
-    elif is_jitlass(func):
-        new_methods = {}
-        to_iter = func.class_type.jit_methods
 
-        def set_func(key, value):
-            new_methods[key] = value
-
-    elif str(type(func)) == "<class 'module'>" and func.__package__ in allowed_packages:
-
-        def set_func(key, value):
-            setattr(func, key, value)
-
-        to_iter = {key: getattr(func, key) for key in dir(func)}
+def track_namespace(namespace, seen_namespaces):
+    if namespace.id() in seen_namespaces:
+        return True
     else:
-        raise NotImplementedError(type(func))
-
-    clean_up = iter_children(to_iter, seen, set_func, allowed_packages)
-    if is_jitlass(func):
-        return type(func.class_type.class_name, (), new_methods), clean_up
-    return func, clean_up
+        seen_namespaces[namespace.id()] = namespace
+        return False
 
 
-def iter_children(to_iter, seen, set_func, allowed_packages=tuple()):
-    clean_up = {}
-    for key, maybe_func in to_iter.items():
-        if isinstance(maybe_func, (list, dict, np.ndarray)):
-            continue
-        if isinstance(maybe_func, (int, float, str)):
-            continue
-        if (
-            str(type(maybe_func)) == "<class 'module'>"
-            and maybe_func.__package__ in allowed_packages
-        ):
-            # print("module", maybe_func)
-            if maybe_func in seen:
-                continue
-            seen[maybe_func] = None
-            # print(seen)
-            non_numba_handle, handle_cleanup = remove_numba(
-                maybe_func, seen, allowed_packages
-            )
-            clean_up["__module__" + key] = handle_cleanup
-            continue
-
-        if not (
-            isinstance(
-                maybe_func, (type(remove_numba), numba.core.registry.CPUDispatcher)
-            )
-            or is_jitlass(maybe_func)
-        ):
-            continue
-        if maybe_func in seen:
-            # print("Seen")
-            # print(maybe_func)
-            clean_up[key] = maybe_func
-            clean_up["__children__" + key] = {}
-            set_func(key, seen[maybe_func])
-            continue
-
-        if hasattr(maybe_func, "py_func") or is_jitlass(maybe_func):
-            non_numba_handle, handle_cleanup = remove_numba(
-                maybe_func, seen, allowed_packages
-            )
-            clean_up[key] = maybe_func
-            clean_up["__children__" + key] = handle_cleanup
-            set_func(key, non_numba_handle)
-    return clean_up
+def is_right_module(obj, settings):
+    if str(type(obj)) == "<class 'module'>" and not settings.is_allowed_module_string(
+        obj.__package__
+    ):
+        return False
+    if repr(obj).startswith("<class 'numba.experimental.jitclass.base."):
+        return True
+    if not settings.is_allowed_module_string(obj.__module__):
+        # print(obj)
+        # print(obj, obj.__module__)
+        return False
+    return True
 
 
-def restore_numba(func, clean_up, parent=None):
-    # print(func)
-    if hasattr(func, "py_func"):
-        func = func.py_func
-    # print(func)
-    if isinstance(func, type(restore_numba)):
+class DictWrapper:
+    def __init__(self, d, parents, name=None):
+        self.d = d
+        self.parents = parents
+        if name is None:
+            self._name = self.d["__name__"]
+        else:
+            self._name = name
 
-        def set_func(key, value):
-            func.__globals__[key] = value
+    def id(self):
+        return id(self.d)
 
-        def get_func(key):
-            return func.__globals__[key]
+    def set(self, key, value):
+        self.d[key] = value
 
-    elif str(type(func)) == "<class 'module'>":
+    def get(self, key):
+        return self.d[key]
 
-        def set_func(key, value):
-            setattr(func, key, value)
+    def items(self):
+        return self.d.items()
 
-        def get_func(key):
-            return getattr(func, key)
+    def __eq__(self, other):
+        return self.d is other.d
 
-    elif str(type(func)) == "<class 'type'>":
+    def __repr__(self):
+        return f"DictWrapper({self.parents},{filter_globals(self.d)})"
 
-        def set_func(key, value):  # pylint: disable=unused-argument
-            pass
-            # print(key, value)
-            # parent.class_type.jit_methods[key]=value
-            # setattr(func, key, value)
+    def name(self):
+        return self._name
 
-        def get_func(key):
-            return parent.class_type.jit_methods[key]
 
+class ModuleWrapper:
+    def __init__(self, module, parents):
+        self.module = module
+        self.parents = parents
+
+    def id(self):
+        return id(self.module)
+
+    def set(self, key, value):
+        setattr(self.module, key, value)
+
+    def get(self, key):
+        return getattr(self.module, key)
+
+    def items(self):
+        return {key: getattr(self.module, key) for key in dir(self.module)}
+
+    def __repr__(self):
+        return f"ModuleWrapper({self.parents},{filter_globals(self.items())})"
+
+    def name(self):
+        return repr(self.module)
+
+
+class ClassWrapper:
+    def __init__(self, cls, parents):
+        self.d = cls.__dict__
+        self.parents = parents
+        self._name = str(type(cls)).split("'")[1]
+
+    def id(self):
+        return id(self.d)
+
+    def set(self, key, value):
+        self.d[key] = value
+
+    def get(self, key):
+        return self.d[key]
+
+    def items(self):
+        return self.d.items()
+
+    def __repr__(self):
+        return f"ClassWrapper({self.parents},{filter_globals(dict(self.items()))})"
+
+    def name(self):
+        return self._name
+
+
+class TypeWrapper:
+    def __init__(self, cls, parents):
+        self.cls = cls
+        self.parents = parents
+        self._name = str(cls).split("'")[1]
+
+    def id(self):
+        return id(self.cls)
+
+    def set(self, key, value):
+        setattr(self.cls, key, value)
+
+    def get(self, key):
+        return getattr(self.cls, key)
+
+    def items(self):
+        return {key: getattr(self.cls, key) for key in dir(self.cls)}.items()
+
+    def __repr__(self):
+        return f"TypeWrapper({self.parents},{filter_globals(dict(self.items()))})"
+
+    def name(self):
+        return self._name
+
+
+def collect_unseen_namespaces(obj, seen_namespaces, settings, parents=tuple()):
+    def my_print(*args):
+        print("  " * settings.depth, *args)
+
+    # my_print(obj, type(obj))
+    # need to do modules firs because they have no __module__
+    if str(type(obj)) == "<class 'module'>" and not settings.is_allowed_module_string(
+        obj.__package__
+    ):
+        return
+    # my_print(" ",obj, obj.__module__)
+    # my_print(" ",obj.__init__.__globals__)
+    if not settings.is_allowed_module_string(obj.__module__):
+        # print("MODULE", obj.__module__)
+        return
+    # my_print(dir(obj))
+    if hasattr(obj, "py_func"):  # is @njit function
+        namespace = DictWrapper(obj.py_func.__globals__, parents)
+        if track_namespace(namespace, seen_namespaces):
+            return
+    elif isinstance(obj, type(is_right_module)):
+        # my_print("MODULE", obj.__module__)
+        namespace = DictWrapper(obj.__globals__, parents)
+        if track_namespace(namespace, seen_namespaces):
+            return
+    elif is_jitlass(obj):
+        # print("JITCLASS")
+        namespace = DictWrapper(obj.class_type.jit_methods, parents, name=str(obj))
+        # print(obj.class_type.jit_methods)
+        if track_namespace(namespace, seen_namespaces):
+            return
+    elif (
+        str(type(obj)) == "<class 'module'>"
+        and obj.__package__ in settings.allowed_packges
+    ):
+        namespace = ModuleWrapper(obj, parents)
+        if track_namespace(ModuleWrapper, seen_namespaces):
+            return
+    elif str(type(obj)) == "<class 'type'>":
+        namespace = TypeWrapper(obj, parents)
+    elif str(type(obj)).startswith("<class '"):
+        namespace = ClassWrapper(obj, parents)
     else:
-        raise NotImplementedError(str(type(func)) + " " + str(func))
-    restore_children(clean_up, get_func, set_func)
-
-
-def restore_children(clean_up, get_func, set_func):
-    for key, value in clean_up.items():
-        if key.startswith("__children__"):
+        raise NotImplementedError(type(obj))
+    # print("HERE", namespace)
+    for key, new_obj in namespace.items():
+        if key in (
+            "__loader__",
+            "__builtins__",
+            "__dict__",
+            "__weakref__",
+            "__delattr__",
+            "__dir__",
+            "__new__",
+            "@py_builtins",
+        ):
             continue
-        if key.startswith("__module__"):
-            short_key = key[len("__module__") :]
-            restore_numba(get_func(short_key), clean_up[key])
+        # print(key, type(new_obj))
+        if str(type(new_obj)) in (
+            "<class 'method_descriptor'>",
+            "<class 'wrapper_descriptor'>",
+            "<class 'builtin_function_or_method'>",
+        ):
             continue
-        if get_func(key) is value and not hasattr(value, "py_func"):
+        if isinstance(new_obj, (list, dict, np.ndarray, tuple)):
             continue
-        restore_numba(get_func(key), clean_up["__children__" + key], value)
-        set_func(key, value)
+        if isinstance(new_obj, (int, float, str)):
+            continue
+        if new_obj is None:
+            continue
+        if str(new_obj).startswith("ModuleSpec("):
+            continue
+        # print("BB", key, type(new_obj))
+        if not is_right_module(new_obj, settings):
+            continue
+        # if key in ("_smawk_iter",):
+        #    print(key, type(new_obj), parents)
+        # my_print("into", key, type(new_obj))
+        settings.depth += 1
+        collect_unseen_namespaces(
+            new_obj,
+            seen_namespaces,
+            settings,
+            parents + (namespace.name() + "." + key,),
+        )
+        settings.depth -= 1
 
 
-def remove_from_class(cls, allowed_packages=tuple()):
-    clean_ups = {}
-    seen = {}
-    for key, value in cls.__dict__.items():
-        if hasattr(value, "__module__"):
-            _, handle_cleanup = remove_numba(value, seen, allowed_packages)
-            clean_ups[key] = (value, handle_cleanup)
-            # print(key)
-            # print(value.__module__)
-    return clean_ups
+class UndoNjitFunction:
+    def __init__(self, name):
+        self.name = name
+        self.njit_function = None
+
+    def remove_numba(self, namespace):
+        self.njit_function = namespace.get(self.name)
+        namespace.set(self.name, self.njit_function.py_func)
+
+    def add_numba(self, namespace):
+        namespace.set(self.name, self.njit_function)
+
+    def __repr__(self):
+        return f"UndoNjitFunction({self.name})"
+
+    def __eq__(self, other):
+        if not isinstance(other, UndoNjitFunction):
+            return False
+        return self.name == other.name
 
 
-def restore_to_class(clean_ups):
-    for _, (handle, clean_up) in clean_ups.items():
-        restore_numba(handle, clean_up)
-        # cls.__dict__[key]=handle
+class UndoJitclassFunction:
+    def __init__(self, name):
+        self.name = name
+        self.njit_class = None
+        self.python_class = None
+
+    def remove_numba(self, namespace):
+        self.njit_class = namespace.get(self.name)
+        if self.njit_class is None:
+            raise ValueError()
+        # print(self.njit_class.class_type.jit_methods)
+        new_methods = {
+            key: getattr(value, "py_func", value)
+            for key, value in self.njit_class.class_type.jit_methods.items()
+        }
+
+        self.python_class = type(self.njit_class.class_type.class_name, (), new_methods)
+        namespace.set(self.name, self.python_class)
+
+    def add_numba(self, namespace):
+        namespace.set(self.name, self.njit_class)
+
+    def __eq__(self, other):
+        if not isinstance(other, UndoJitclassFunction):
+            return False
+        return self.name == other.name
+
+    def __repr__(self):
+        if self.njit_class is None:
+            return f"UndoJitclassFunction({self.name})"
+        return f"UndoJitclassFunction({self.njit_class.class_type.class_name})"
 
 
-class NoNumbaTestCase:
-    def setUp(self):
-        for cls in self.__class__.__bases__:
-            if cls is NoNumbaTestCase:
+def is_trivial_object(key, obj):
+    if key in ("__loader__", "__builtins__", "__dict__", "__weakref__"):
+        return True
+    if isinstance(obj, (list, dict, np.ndarray, tuple)):
+        return True
+    if isinstance(obj, (int, float, str)):
+        return True
+    if obj is None:
+        return True
+    return False
+
+
+def remove_numba_from_namespaces(namespaces):
+    list_of_undos = []
+    for namespace in namespaces.values():
+        undo_list = []
+        list_of_undos.append(undo_list)
+        for key, obj in namespace.items():
+            if is_trivial_object(key, obj):
                 continue
-            self.cleanup = remove_from_class(cls, allowed_packages=["fast1dkmeans"])
-            break
+            if hasattr(obj, "py_func"):
+                # print()
+                # print(filter_globals(namespace))
+                # print(key, obj)
+                undo_list.append(UndoNjitFunction(key))
+            elif is_jitlass(obj):
+                undo_list.append(UndoJitclassFunction(key))
+            else:
+                pass
+                # print(obj, type(obj))
+        for changer in undo_list:
+            # print(changer)
+            # print(namespace)
+            changer.remove_numba(namespace)
+            # print()
+            # print(changer)
+            # print(namespace)
+    return list_of_undos
 
-    def tearDown(self) -> None:
-        restore_to_class(self.cleanup)
+
+def filter_globals(d):
+    out = {}
+    for key, value in d.items():
+        if key.endswith("Error"):
+            continue
+        if key in (
+            "quit",
+            "copyright",
+            "np",
+            "__spec__",
+            "__file__",
+            "__loader__",
+            "__cached__",
+        ):
+            continue
+        if key in ("__builtins__", "unittest"):
+            continue
+        out[key] = value
+    return out
+
+
+def remove_from_class(cls, settings=None, allowed_packages=None):
+    if settings is None:
+        if allowed_packages is None:
+            raise ValueError()
+        # print("CLS MODULE", cls.__module__)
+        settings = RemoveNumbaSettings(
+            allowed_packes=tuple(allowed_packages) + (cls.__module__,)
+        )
+    namespaces = {}
+    collect_unseen_namespaces(cls, namespaces, settings)
+    # print(len(namespaces))
+    list_of_undos = remove_numba_from_namespaces(namespaces)
+
+    namespaces2 = {}
+    collect_unseen_namespaces(cls, namespaces2, settings)
+    list_of_undos2 = remove_numba_from_namespaces(namespaces2)
+
+    if DEBUG:
+        print("-----------------")
+        print([namespace.name() for namespace in namespaces.values()])
+        print("-----------------")
+        # print(len(namespaces))
+
+        for (_, namespace), l in zip(namespaces2.items(), list_of_undos2):
+            if not len(l) == 0:
+                # print()
+                # print("?????")
+                # print(namespace)
+                # print(l)
+                assert False
+
+    return namespaces, list_of_undos
+
+
+def restore_to_class(stuff):
+    namespaces, list_of_undos = stuff
+    for (_, namespace), undos in zip(namespaces.items(), list_of_undos):
+        for undo in undos:
+            # print(undo)
+            undo.add_numba(namespace)
+
+
+def namespaces_equal(namespaces1, namespaces2):
+    return list(namespaces1.keys()) == list(namespaces2.keys()) and all(
+        [ns1 == ns2 for ns1, ns2 in zip(namespaces1.values(), namespaces2.values())]
+    )
+
+
+def undos_equal(undos1, undos2):
+    for l1, l2 in zip(undos1, undos2):
+        if not all([u1 == u2 for u1, u2 in zip(l1, l2)]):
+            return False
+    return True
+
+
+def cleanups_equal(cleanup1, cleanup2):
+    """Checks whether two cleanups are equal"""
+    namespaces1, undos1 = cleanup1
+    namespaces2, undos2 = cleanup2
+
+    return namespaces_equal(namespaces1, namespaces2) and undos_equal(undos1, undos2)

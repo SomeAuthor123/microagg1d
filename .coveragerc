@@ -1,3 +1,4 @@
+# type: ignore
 # .coveragerc to control coverage.py
 [run]
 branch = True
@@ -31,3 +32,4 @@ omit =
     */algorithms_educational.py
     */algorithms_old.py
     */smawk_old.py
+    */utils_for_test.py

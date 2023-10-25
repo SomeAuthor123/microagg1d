@@ -5,7 +5,7 @@ import numpy as np
 
 from microagg1d.common import compute_cluster_cost_sorted
 from microagg1d.cost_maxdist import AdaptedMaxDistCostCalculator, MaxDistCostCalculator
-from microagg1d.main import optimal_univariate_microaggregation_1d
+from microagg1d.main import univariate_microaggregation
 from microagg1d.user_facing import _maxdist_user
 from microagg1d.utils_for_test import remove_from_class, restore_to_class
 
@@ -63,9 +63,7 @@ class Test8Elements(unittest.TestCase):
         my_test_algorithm(self, partial(_maxdist_user, algorithm="staggered"))
 
     def test_maxdist_main(self):
-        my_test_algorithm(
-            self, partial(optimal_univariate_microaggregation_1d, cost="maxdist")
-        )
+        my_test_algorithm(self, partial(univariate_microaggregation, cost="maxdist"))
 
 
 class Test7Elements(Test8Elements):

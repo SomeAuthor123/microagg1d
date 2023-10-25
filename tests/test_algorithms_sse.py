@@ -6,7 +6,7 @@ import numpy as np
 from microagg1d.algorithms_educational import conventional_algorithm
 from microagg1d.common import compute_cluster_cost_sorted
 from microagg1d.cost_sse import SSECostCalculator
-from microagg1d.main import optimal_univariate_microaggregation_1d
+from microagg1d.main import univariate_microaggregation
 from microagg1d.user_facing import (
     _sse_galil_park2,
     _sse_simple_dynamic_program,
@@ -126,23 +126,19 @@ class Test8Elements(unittest.TestCase):
 
     # test main
     def test_optimal_univariate_microaggregation_simple(self):
-        my_test_algorithm(
-            self, partial(optimal_univariate_microaggregation_1d, method="simple")
-        )
+        my_test_algorithm(self, partial(univariate_microaggregation, method="simple"))
 
     def test_optimal_univariate_microaggregation_wilber(self):
-        my_test_algorithm(
-            self, partial(optimal_univariate_microaggregation_1d, method="wilber")
-        )
+        my_test_algorithm(self, partial(univariate_microaggregation, method="wilber"))
 
     def test_optimal_univariate_microaggregation_galil_park(self):
         my_test_algorithm(
-            self, partial(optimal_univariate_microaggregation_1d, method="galil_park")
+            self, partial(univariate_microaggregation, method="galil_park")
         )
 
     def test_optimal_univariate_microaggregation_staggered(self):
         my_test_algorithm(
-            self, partial(optimal_univariate_microaggregation_1d, method="staggered")
+            self, partial(univariate_microaggregation, method="staggered")
         )
 
 

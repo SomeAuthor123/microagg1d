@@ -1,3 +1,3 @@
-from microagg1d.main import optimal_univariate_microaggregation_1d
+from microagg1d.main import univariate_microaggregation
 
-microagg1d = optimal_univariate_microaggregation_1d  # shorthand for the above
+microagg1d = univariate_microaggregation  # shorthand for the above

@@ -4,7 +4,9 @@ import unittest
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from microagg1d.main import optimal_univariate_microaggregation_1d, undo_argsort
+from microagg1d.generation import create_pair_arange
+from microagg1d.main import undo_argsort, univariate_microaggregation
+from microagg1d.utils_for_test import remove_from_class, restore_to_class
 
 # use with k=5
 interesting_arr = np.array(
@@ -36,7 +38,14 @@ def get_random_arr(seed, n):
     return x, x_sorted, order
 
 
-class RegularizedKmeans(unittest.TestCase):
+class TestMainLarger(unittest.TestCase):
+    def test_microagg_larger_input(self):
+        arr, solution = create_pair_arange(150, 22)
+        result = univariate_microaggregation(arr, 22)
+        np.testing.assert_array_equal(solution, result)
+
+
+class TestMain(unittest.TestCase):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.arr = np.array([1, 1, 1, 1.1, 5, 5, 5])
@@ -56,43 +65,61 @@ class RegularizedKmeans(unittest.TestCase):
 
     def test_microagg_raises(self):
         with self.assertRaises(AssertionError):
-            optimal_univariate_microaggregation_1d(np.random.rand(4, 4), 1)
+            univariate_microaggregation(np.random.rand(4, 4), 1)
 
         with self.assertRaises(AssertionError):
-            optimal_univariate_microaggregation_1d(self.arr, 0)
+            univariate_microaggregation(self.arr, 0)
 
-    def test_microagg(self):
+    def test_microagg_combinations(self):
+        for method in ("auto", "wilber", "galil_park", "staggered"):
+            for cost in ("sse", "sae", "roundup", "rounddown", "maxdist"):
+                with self.subTest(msg=f"{method}_{cost}"):
+                    for k, solution in zip(range(1, len(self.arr) + 1), self.solutions):
+                        result = univariate_microaggregation(
+                            self.arr.copy(), k, method=method, cost=cost
+                        )
+                        np.testing.assert_array_equal(solution, result, f"k={k}")
+
+    def test_microagg_no_arguments(self):
         for k, solution in zip(range(1, len(self.arr) + 1), self.solutions):
-            result = optimal_univariate_microaggregation_1d(self.arr.copy(), k)
+            result = univariate_microaggregation(self.arr.copy(), k)
             np.testing.assert_array_equal(solution, result, f"k={k}")
 
     def test_example_usage(self):
-        import microagg1d  # pylint: disable=import-outside-toplevel
+        # pylint: disable=redefined-outer-name,reimported,import-outside-toplevel
+        from microagg1d import univariate_microaggregation
 
-        x = [5, 1, 1, 1.1, 5, 1, 5]
+        x = [5, 1, 1, 1.1, 5, 1, 5.1]
 
-        clusters = microagg1d.optimal_univariate_microaggregation_1d(x, k=3)
+        clusters = univariate_microaggregation(x, k=3)
 
         print(clusters)  # [1 0 0 0 1 0 1]
-        np.testing.assert_array_equal(clusters, [1, 0, 0, 0, 1, 0, 1], f"k={3}")
 
-        clusters2 = microagg1d.optimal_univariate_microaggregation_1d(
-            x, k=3, method="wilber"
-        )  # explicitly choose method
+        # explicitly choose method / algorithm
+        clusters2 = univariate_microaggregation(x, k=3, method="wilber")
 
         print(clusters2)  # [1 0 0 0 1 0 1]
 
-        # may opt to get increased speed at cost of stability
-        # this is usually not a problem on small datasets such as here
-        clusters3 = microagg1d.optimal_univariate_microaggregation_1d(
-            x, k=3, stable=False
-        )
+        # choose a different cost (sae / sse / roundup / rounddown / maxdist)
+        clusters3 = univariate_microaggregation(x, k=3, cost="sae")
 
         print(clusters3)  # [1 0 0 0 1 0 1]
+
+        np.testing.assert_array_equal(clusters, [1, 0, 0, 0, 1, 0, 1], f"k={3}")
 
         np.testing.assert_array_equal(clusters2, [1, 0, 0, 0, 1, 0, 1], f"k={3}")
 
         np.testing.assert_array_equal(clusters3, [1, 0, 0, 0, 1, 0, 1], f"k={3}")
+
+
+class TestMainNonCompiled(TestMain):
+    def setUp(self):
+        self.cleanup = remove_from_class(
+            self.__class__.__bases__[0], allowed_packages=["microagg1d"]
+        )
+
+    def tearDown(self) -> None:
+        restore_to_class(self.cleanup)
 
 
 if __name__ == "__main__":
