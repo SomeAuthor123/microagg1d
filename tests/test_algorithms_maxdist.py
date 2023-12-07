@@ -7,7 +7,7 @@ from microagg1d.common import compute_cluster_cost_sorted
 from microagg1d.cost_maxdist import AdaptedMaxDistCostCalculator, MaxDistCostCalculator
 from microagg1d.main import univariate_microaggregation
 from microagg1d.user_facing import _maxdist_user
-from microagg1d.utils_for_test import remove_from_class, restore_to_class
+from microagg1d.utils_for_test import remove_numba_from_class, restore_to_class
 
 
 class TestMedianCosts(unittest.TestCase):
@@ -117,7 +117,7 @@ class TestArray(Test8Elements):
 
 class Test8ElementsNonCompiled(Test8Elements):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 
@@ -127,7 +127,7 @@ class Test8ElementsNonCompiled(Test8Elements):
 
 class TestArrayElementsNonCompiled(TestArray):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 

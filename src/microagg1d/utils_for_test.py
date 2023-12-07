@@ -357,7 +357,7 @@ def filter_globals(d):
     return out
 
 
-def remove_from_class(cls, settings=None, allowed_packages=None):
+def remove_numba_from_class(cls, settings=None, allowed_packages=None):
     if settings is None:
         if allowed_packages is None:
             raise ValueError()

@@ -11,7 +11,7 @@ from microagg1d.cost_round import (
     RoundUpCostCalculator,
 )
 from microagg1d.user_facing import _rounddown_user, _roundup_user
-from microagg1d.utils_for_test import remove_from_class, restore_to_class
+from microagg1d.utils_for_test import remove_numba_from_class, restore_to_class
 
 
 class TestMedianCosts(unittest.TestCase):
@@ -205,7 +205,7 @@ class TestArrayDown(Test8ElementsDown):
 
 class Test8ElementsNonCompiled(Test8Elements):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 
@@ -215,7 +215,7 @@ class Test8ElementsNonCompiled(Test8Elements):
 
 class TestArrayElementsNonCompiled(TestArray):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 
@@ -225,7 +225,7 @@ class TestArrayElementsNonCompiled(TestArray):
 
 class Test8DownElementsNonCompiled(Test8ElementsDown):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 
@@ -235,7 +235,7 @@ class Test8DownElementsNonCompiled(Test8ElementsDown):
 
 class TestArrayDownElementsNonCompiled(TestArrayDown):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 

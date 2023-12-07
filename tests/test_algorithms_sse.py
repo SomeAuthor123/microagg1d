@@ -13,7 +13,7 @@ from microagg1d.user_facing import (
     _sse_simple_dynamic_program2,
     _sse_staggered2,
 )
-from microagg1d.utils_for_test import remove_from_class, restore_to_class
+from microagg1d.utils_for_test import remove_numba_from_class, restore_to_class
 
 
 def my_test_algorithm(self, algorithm):
@@ -270,7 +270,7 @@ class TestAgreement(unittest.TestCase):
 
 class Test8ElementsNonCompiled(Test8Elements):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 
@@ -280,7 +280,7 @@ class Test8ElementsNonCompiled(Test8Elements):
 
 class TestArrayElementsNonCompiled(TestArray):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 

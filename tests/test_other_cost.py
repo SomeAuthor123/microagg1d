@@ -14,7 +14,7 @@ from microagg1d.cost_sae import (
     SAECostCalculator,
     calc_sorted_median,
 )
-from microagg1d.utils_for_test import remove_from_class, restore_to_class
+from microagg1d.utils_for_test import remove_numba_from_class, restore_to_class
 
 x = np.arange(10, dtype=np.float64)
 F_vals = np.zeros(10)
@@ -42,7 +42,7 @@ class BasicTests(unittest.TestCase):
 
 class BasicTestsNonCompiled(BasicTests):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 
@@ -60,7 +60,7 @@ class SAETests(unittest.TestCase):
 
 class SAETestsNonCompiled(SAETests):
     def setUp(self):
-        self.cleanup = remove_from_class(
+        self.cleanup = remove_numba_from_class(
             self.__class__.__bases__[0], allowed_packages=["microagg1d"]
         )
 
