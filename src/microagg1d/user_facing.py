@@ -36,7 +36,7 @@ def _sse_staggered2(v, k, stable=1):
     method = __staggered2
     # unfortunately a lot of copy pasta as numba can't handle it yet
     n = len(v)
-    if stable == 2:
+    if stable == 0:
         cost_calculator = FasterAdaptedSSECostCalculator(
             calc_cumsum(v), k, np.empty(n + 1, dtype=np.float64)
         )
@@ -46,7 +46,7 @@ def _sse_staggered2(v, k, stable=1):
             v, k, np.empty(n + 1, dtype=np.float64), 3 * k
         )
         return convert_implicit_to_explicit_clustering(method(n, cost_calculator, k))
-    elif stable == 0:
+    elif stable == 2:
         cumsum = calc_cumsum(v)
         cumsum2 = calc_cumsum(np.square(v))
         cost_calculator = AdaptedSSECostCalculator(
@@ -62,7 +62,7 @@ def _sse_galil_park2(v, k, stable=1):
     method = __galil_park2
     # unfortunately a lot of copy pasta as numba can't handle it yet
     n = len(v)
-    if stable == 2:
+    if stable == 0:
         cost_calculator = FasterAdaptedSSECostCalculator(
             calc_cumsum(v), k, np.empty(n + 1, dtype=np.float64)
         )
@@ -72,7 +72,7 @@ def _sse_galil_park2(v, k, stable=1):
             v, k, np.empty(n + 1, dtype=np.float64), 3 * k
         )
         return convert_implicit_to_explicit_clustering(method(n, cost_calculator))
-    elif stable == 0:
+    elif stable == 2:
         cumsum = calc_cumsum(v)
         cumsum2 = calc_cumsum(np.square(v))
         cost_calculator = AdaptedSSECostCalculator(
@@ -88,7 +88,7 @@ def _sse_wilber2(v, k, stable=1):
     method = __wilber2
     # unfortunately a lot of copy pasta as numba can't handle it yet
     n = len(v)
-    if stable == 2:
+    if stable == 0:
         cost_calculator = FasterAdaptedSSECostCalculator(
             calc_cumsum(v), k, np.empty(n + 1, dtype=np.float64)
         )
@@ -98,7 +98,7 @@ def _sse_wilber2(v, k, stable=1):
             v, k, np.empty(n + 1, dtype=np.float64), 3 * k
         )
         return convert_implicit_to_explicit_clustering(method(n, cost_calculator))
-    elif stable == 0:
+    elif stable == 2:
         cumsum = calc_cumsum(v)
         cumsum2 = calc_cumsum(np.square(v))
         cost_calculator = AdaptedSSECostCalculator(
